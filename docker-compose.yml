@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: control-stock-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: prisma123
+      POSTGRES_DB: control_stock
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+

@@ -1,0 +1,101 @@
+{
+  "info": {
+    "name": "recess",
+    "description": "Modo venta por recreo: abrir sesión, agregar ítems, cerrar. Requiere login (admin u operador). Variable sessionId se rellena al abrir.",
+    "schema": "https://schema.postman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "sessionId", "value": "REPLACE_ME" }
+  ],
+  "item": [
+    {
+      "name": "Sesión actual (OPEN)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/recess-sessions?current=1",
+        "description": "Devuelve session con items o null."
+      }
+    },
+    {
+      "name": "Abrir recreo",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/recess-sessions",
+        "description": "409 si ya hay OPEN. Copiar id a sessionId."
+      }
+    },
+    {
+      "name": "Agregar ítem por barcode",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barcode\": \"7791234567890\",\n  \"qty\": 1\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/recess-sessions/{{sessionId}}/items",
+        "description": "Crea sale_item + OUT en la misma transacción."
+      }
+    },
+    {
+      "name": "Agregar ítem (idempotencia)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barcode\": \"7791234567890\",\n  \"qty\": 1,\n  \"idempotencyKey\": \"550e8400-e29b-41d4-a716-446655440000\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/recess-sessions/{{sessionId}}/items",
+        "description": "Misma clave + misma sesión: segunda respuesta idéntica, header Idempotent-Replayed: true."
+      }
+    },
+    {
+      "name": "Agregar ítem por productId",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productId\": \"REPLACE_PRODUCT_ID\",\n  \"qty\": 2\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/recess-sessions/{{sessionId}}/items",
+        "description": "Para productos sin barcode."
+      }
+    },
+    {
+      "name": "Detalle sesión",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/recess-sessions/{{sessionId}}",
+        "description": "Ticket con ítems."
+      }
+    },
+    {
+      "name": "Cerrar recreo",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"paymentMethod\": \"EFECTIVO\",\n  \"paymentTotalAmount\": 150.5\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/recess-sessions/{{sessionId}}/close",
+        "description": "Calcula totalAmount desde ítems; cobro informativo opcional."
+      }
+    },
+    {
+      "name": "Listar últimas sesiones",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/recess-sessions?limit=10",
+        "description": "Historial reciente."
+      }
+    }
+  ]
+}

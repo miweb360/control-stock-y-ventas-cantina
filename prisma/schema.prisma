@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERADOR
+}
+
+enum ProductStatus {
+  ACTIVO
+  INACTIVO
+}
+
+enum InventoryMovementType {
+  IN
+  OUT
+  ADJUST
+  EXPIRE
+}
+
+enum RecessSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  QR
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  role         Role     @default(OPERADOR)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  inventoryMovements InventoryMovement[]
+  recessSessions     RecessSession[] @relation("RecessOpenedBy")
+  recessSessionsClosed RecessSession[] @relation("RecessClosedBy")
+}
+
+model Product {
+  id        String        @id @default(cuid())
+  name      String
+  barcode   String?       @db.VarChar(64)
+  priceRef  Decimal       @db.Decimal(12, 2)
+  status    ProductStatus @default(ACTIVO)
+  trackStock Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  saleItems           SaleItem[]
+  inventoryMovements InventoryMovement[]
+
+  @@unique([barcode])
+  @@index([status])
+}
+
+model RecessSession {
+  id          String              @id @default(cuid())
+  status      RecessSessionStatus @default(OPEN)
+  openedAt    DateTime            @default(now())
+  closedAt    DateTime?
+
+  totalAmount Decimal?            @db.Decimal(12, 2)
+  paymentMethod PaymentMethod?
+  paymentTotalAmount Decimal?    @db.Decimal(12, 2)
+
+  openedByUserId String?
+  closedByUserId String?
+
+  openedByUser User? @relation("RecessOpenedBy", fields: [openedByUserId], references: [id])
+  closedByUser User? @relation("RecessClosedBy", fields: [closedByUserId], references: [id])
+
+  saleItems        SaleItem[]
+  addItemIdempotencies RecessAddItemIdempotency[]
+
+  @@index([status, openedAt])
+}
+
+// Clave idempotente por sesión + cliente (doble envío / reintentos).
+model RecessAddItemIdempotency {
+  id                String   @id @default(cuid())
+  recessSessionId   String
+  key               String   @db.VarChar(128)
+  saleItemId        String
+  createdAt         DateTime @default(now())
+
+  recessSession RecessSession @relation(fields: [recessSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([recessSessionId, key])
+  @@index([recessSessionId])
+}
+
+model SaleItem {
+  id String @id @default(cuid())
+
+  recessSessionId String
+  productId       String
+
+  qty            Int
+  unitPriceRef  Decimal @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+
+  // 1:1 entre el item vendido y el movimiento OUT generado (para trazabilidad).
+  inventoryMovement InventoryMovement? @relation("SaleItemInventoryMovement")
+
+  recessSession RecessSession @relation(fields: [recessSessionId], references: [id])
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@index([recessSessionId])
+  @@index([productId, createdAt])
+}
+
+model InventoryMovement {
+  id String @id @default(cuid())
+
+  type InventoryMovementType
+  qty  Int
+  reason String
+  createdAt DateTime @default(now())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  createdByUserId String?
+  createdByUser   User? @relation(fields: [createdByUserId], references: [id])
+
+  // Si el movimiento es consecuencia directa de una venta, se vincula al SaleItem.
+  saleItemId String? @unique
+  saleItem   SaleItem? @relation("SaleItemInventoryMovement", fields: [saleItemId], references: [id])
+
+  @@index([productId, createdAt])
+}
+

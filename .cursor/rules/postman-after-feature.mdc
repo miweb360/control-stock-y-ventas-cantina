@@ -1,0 +1,16 @@
+---
+description: Crear colección Postman al finalizar cada feature
+alwaysApply: true
+---
+
+# Regla: Postman después de cada feature
+
+Al **terminar de implementar una feature nueva** (endpoints API, flujos, etc.):
+
+1. Crear o actualizar una colección Postman en `postman/`.
+2. Nombrar el archivo según la feature: `postman/{nombre-feature}.postman_collection.json`.
+3. Incluir todas las requests necesarias para probar la feature de punta a punta.
+4. Agregar variables de entorno sugeridas si aplica (ej. `baseUrl`, `token`).
+5. Incluir tests/scripts Postman opcionales para validar respuestas (status 200/201, estructura JSON).
+
+Formato: Postman Collection v2.1.

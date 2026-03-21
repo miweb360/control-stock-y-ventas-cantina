@@ -1,0 +1,58 @@
+{
+  "info": {
+    "name": "users",
+    "description": "Gestión de usuarios (solo ADMIN). Crear operadores/administradores. Requiere login como admin.",
+    "schema": "https://schema.postman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:3000" }],
+  "item": [
+    {
+      "name": "Listar usuarios",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/users",
+        "description": "Devuelve todos los usuarios (sin passwordHash)."
+      }
+    },
+    {
+      "name": "Crear operador",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"nuevo@operador.local\",\n  \"password\": \"operador123\",\n  \"role\": \"OPERADOR\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users",
+        "description": "Mín. 6 caracteres en password. role opcional (default OPERADOR)."
+      }
+    },
+    {
+      "name": "Actualizar usuario (contraseña y/o rol)",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"nueva123\",\n  \"role\": \"OPERADOR\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users/REPLACE_USER_ID",
+        "description": "Enviar password y/o role. Mín. 6 caracteres si se cambia contraseña."
+      }
+    },
+    {
+      "name": "Crear administrador",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"otro@admin.local\",\n  \"password\": \"admin123\",\n  \"role\": \"ADMIN\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users",
+        "description": "Solo crear admins adicionales si es necesario."
+      }
+    }
+  ]
+}

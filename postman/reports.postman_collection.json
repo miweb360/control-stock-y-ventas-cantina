@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "reports",
+    "description": "Reportes de ventas (solo ADMIN). Usar cookie auth_token tras login en colección auth.",
+    "schema": "https://schema.postman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:3000" }],
+  "item": [
+    {
+      "name": "Resumen ventas (default 7 días UTC)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/reports/sales-summary",
+        "description": "Opcional: ?from=2025-03-01&to=2025-03-19 (YYYY-MM-DD, UTC)."
+      }
+    },
+    {
+      "name": "Resumen ventas (rango)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/reports/sales-summary?from=2025-03-01&to=2025-03-31",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "reports", "sales-summary"],
+          "query": [
+            { "key": "from", "value": "2025-03-01" },
+            { "key": "to", "value": "2025-03-31" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Ventas por recreo (contrato plan)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/reports/sales-by-recess?from=2025-03-01&to=2025-03-31&limit=50",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "reports", "sales-by-recess"],
+          "query": [
+            { "key": "from", "value": "2025-03-01" },
+            { "key": "to", "value": "2025-03-31" },
+            { "key": "limit", "value": "50" }
+          ]
+        },
+        "description": "Lista recreos cerrados en el rango. limit 1–100."
+      }
+    },
+    {
+      "name": "Ventas por día (UTC)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/reports/sales-by-day?from=2025-03-01&to=2025-03-31",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "reports", "sales-by-day"],
+          "query": [
+            { "key": "from", "value": "2025-03-01" },
+            { "key": "to", "value": "2025-03-31" }
+          ]
+        },
+        "description": "Agregación diaria de recreos cerrados (date_trunc UTC)."
+      }
+    },
+    {
+      "name": "Stock (alias /reports/stock)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/reports/stock",
+        "description": "Misma respuesta que GET /api/v1/stock. Opcional ?productId="
+      }
+    },
+    {
+      "name": "Top productos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/reports/top-products?from=2025-03-01&to=2025-03-31&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "reports", "top-products"],
+          "query": [
+            { "key": "from", "value": "2025-03-01" },
+            { "key": "to", "value": "2025-03-31" },
+            { "key": "limit", "value": "10" }
+          ]
+        },
+        "description": "limit 1–50, default 10 si omitís el query."
+      }
+    }
+  ]
+}

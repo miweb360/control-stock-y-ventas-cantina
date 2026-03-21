@@ -1,0 +1,31 @@
+---
+description: Gate de compatibilidad antes de agregar dependencias
+alwaysApply: true
+---
+
+# Regla de Dependencias
+
+Antes de recomendar o agregar cualquier librería (o actualizar una dependencia existente):
+
+1. Verificar compatibilidad con el stack
+   - Next.js `16.x` (App Router).
+   - TypeScript: `npm run typecheck` debe pasar.
+   - ESLint: usar config de ESLint v9 vía `eslint.config.js`.
+
+2. Revisar tipos
+   - Si no incluye types, considerar `@types/<pkg>` si existe.
+
+3. Revisar compatibilidad de runtime
+   - Inspeccionar `engines` / `peerDependencies` de la librería (Node/TS).
+   - Si pide Node por encima de lo que hay, sugerir actualizar Node local y/o justificar.
+
+4. Después del cambio: checks obligatorios
+   - `npm run lint`
+   - `npm run typecheck`
+   - `npm run build`
+   - `npm audit --omit=dev` (objetivo: 0 vulnerabilities; si no se logra, justificar y documentar).
+
+5. Documentación
+   - Si hay desviaciones por compatibilidad, agregar una ADR en `docs/decisions/`.
+   - Mantener la guía base en `docs/dependency-policy.md` como referencia.
+

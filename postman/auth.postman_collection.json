@@ -1,0 +1,93 @@
+{
+  "info": {
+    "name": "auth",
+    "description": "Colección para probar endpoints de autenticación (login, me, logout).",
+    "schema": "https://schema.postman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" }
+  ],
+  "item": [
+    {
+      "name": "Login (admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@kiosco.local\",\n  \"password\": \"admin123\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "description": "Inicia sesión como admin. Devuelve user y setea cookie auth_token."
+      }
+    },
+    {
+      "name": "Login (operador)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"operador@kiosco.local\",\n  \"password\": \"operador123\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "description": "Inicia sesión como operador."
+      }
+    },
+    {
+      "name": "Login (credenciales inválidas)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@kiosco.local\",\n  \"password\": \"wrong\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "description": "Esperado: 401 con error."
+      }
+    },
+    {
+      "name": "Me (autenticado)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/auth/me",
+        "description": "Requiere cookie auth_token (ejecutar Login antes). Devuelve user actual."
+      }
+    },
+    {
+      "name": "Me (sin auth)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/auth/me",
+        "description": "Sin cookie. Esperado: 401."
+      }
+    },
+    {
+      "name": "Logout (POST)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/auth/logout",
+        "description": "Cierra sesión limpiando la cookie."
+      }
+    },
+    {
+      "name": "Logout (GET redirect)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/auth/logout",
+        "description": "GET también cierra sesión y redirige a /login."
+      }
+    }
+  ]
+}

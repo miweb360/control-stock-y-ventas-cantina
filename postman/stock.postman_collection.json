@@ -1,0 +1,80 @@
+{
+  "info": {
+    "name": "stock",
+    "description": "Colección para probar gestión de stock (IN/ADJUST/EXPIRE). Requiere auth: usar login (admin) antes.",
+    "schema": "https://schema.postman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "productId", "value": "REPLACE_ME" }
+  ],
+  "item": [
+    {
+      "name": "Listar productos activos (para elegir productId)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/products?status=ACTIVO&limit=50",
+        "description": "Solo ADMIN. Copiá el id de un producto y ponelo en la variable {{productId}}."
+      }
+    },
+    {
+      "name": "Stock actual (ADMIN)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/stock",
+        "description": "Devuelve stock agregado por producto (suma de qty con convención del backend)."
+      }
+    },
+    {
+      "name": "Historial movimientos (últimos 50)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/inventory-movements?limit=50",
+        "description": "Historial de movimientos (últimos 50)."
+      }
+    },
+    {
+      "name": "IN: ingreso/reposición +qty",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"type\": \"IN\",\n  \"qty\": 10,\n  \"reason\": \"Reposición semanal\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/inventory-movements",
+        "description": "Solo ADMIN. Para IN el backend interpreta qty como +qty."
+      }
+    },
+    {
+      "name": "ADJUST: delta negativo",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"type\": \"ADJUST\",\n  \"qty\": -2,\n  \"reason\": \"Ajuste por conteo\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/inventory-movements",
+        "description": "Solo ADMIN. Para ADJUST el backend permite delta + o -."
+      }
+    },
+    {
+      "name": "EXPIRE: baja por vencimiento -qty",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"type\": \"EXPIRE\",\n  \"qty\": 3,\n  \"reason\": \"Vencimiento\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/inventory-movements",
+        "description": "Solo ADMIN. Para EXPIRE el backend interpreta qty como -qty."
+      }
+    }
+  ]
+}
+

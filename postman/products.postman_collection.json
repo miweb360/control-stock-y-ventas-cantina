@@ -1,0 +1,102 @@
+{
+  "info": {
+    "name": "products",
+    "description": "Colección para probar ABM de productos. Requiere auth: ejecutar Login (admin) de la colección auth primero.",
+    "schema": "https://schema.postman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" }
+  ],
+  "item": [
+    {
+      "name": "Listar productos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/products",
+        "description": "Lista todos los productos. Requiere cookie auth_token."
+      }
+    },
+    {
+      "name": "Listar productos (filtro status)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/products?status=ACTIVO",
+        "description": "Filtra por status: ACTIVO o INACTIVO."
+      }
+    },
+    {
+      "name": "Listar productos (búsqueda)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/products?search=galleta",
+        "description": "Busca por nombre o código de barras."
+      }
+    },
+    {
+      "name": "Crear producto",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Alfajor\",\n  \"barcode\": \"7791234567890\",\n  \"priceRef\": 150.50,\n  \"trackStock\": true\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/products",
+        "description": "Solo ADMIN. Crea producto nuevo."
+      }
+    },
+    {
+      "name": "Obtener producto por ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/products/:id",
+        "description": "Reemplazar :id por un ID de producto existente."
+      }
+    },
+    {
+      "name": "Actualizar producto",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Alfajor (editado)\",\n  \"priceRef\": 160,\n  \"status\": \"ACTIVO\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/products/:id",
+        "description": "Solo ADMIN. Actualiza campos. Reemplazar :id."
+      }
+    },
+    {
+      "name": "Eliminar producto (sin historial)",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/products/:id",
+        "description": "Solo ADMIN. 204 si OK. 409 si tiene ventas o movimientos de stock (usar INACTIVO)."
+      }
+    },
+    {
+      "name": "Dar de baja producto",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"INACTIVO\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/products/:id",
+        "description": "Solo ADMIN. Cambia status a INACTIVO."
+      }
+    }
+  ]
+}
