@@ -1,7 +1,32 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AdminBackLink } from "@/components/layout/admin-back-link";
+import { PageShell } from "@/components/layout/page-shell";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type User = {
   id: string;
@@ -10,6 +35,9 @@ type User = {
   createdAt: string;
   updatedAt: string;
 };
+
+const selectTouch =
+  "flex min-h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -102,191 +130,235 @@ export default function UsersPage() {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 800 }}>
-      <nav className="no-print" style={{ marginBottom: 20, display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <Link href="/admin" style={{ color: "#0066cc" }}>
-          ← Admin
-        </Link>
-        <a href="/api/v1/auth/logout" style={{ color: "#333" }}>
-          Cerrar sesión
-        </a>
-      </nav>
+    <main>
+      <PageShell>
+        <AdminBackLink />
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <h1>Usuarios</h1>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          disabled={loading}
-          style={{ padding: "8px 16px" }}
-        >
-          Nuevo usuario
-        </button>
-      </div>
-      <p style={{ color: "#555", fontSize: 14, marginTop: 4 }}>
-        Crear operadores (y opcionalmente administradores) para que accedan al sistema.
-      </p>
+        <div className="no-print mb-6 flex flex-wrap items-center gap-3">
+          <a
+            href="/api/v1/auth/logout"
+            className={cn(buttonVariants({ variant: "outline", size: "lg" }), "touch-h touch-text")}
+          >
+            Cerrar sesión
+          </a>
+        </div>
 
-      {error ? <p style={{ color: "crimson", marginTop: 12 }}>{error}</p> : null}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Usuarios</h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+              Operadores y administradores del kiosco
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="lg"
+            className="touch-h touch-text w-full sm:w-auto"
+            disabled={loading}
+            onClick={() => setShowForm(true)}
+          >
+            Nuevo usuario
+          </Button>
+        </div>
 
-      {showForm ? (
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            marginTop: 20,
-            padding: 16,
-            border: "1px solid #ddd",
-            borderRadius: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            maxWidth: 360
+        {error ? (
+          <Alert variant="destructive" className="mt-6" role="alert">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div className="mt-6 rounded-xl border border-border bg-card ring-1 ring-foreground/10">
+          {loading ? (
+            <p className="text-muted-foreground p-6">Cargando…</p>
+          ) : (
+            <ScrollArea className="w-full max-h-[min(70vh,520px)]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead className="hidden sm:table-cell">Creado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-muted-foreground">
+                        Sin usuarios.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    users.map((u) => (
+                      <TableRow key={u.id}>
+                        <TableCell className="font-medium">{u.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={u.role === "ADMIN" ? "default" : "secondary"}>{u.role}</Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground hidden text-sm sm:table-cell">
+                          {new Date(u.createdAt).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            className="touch-h touch-text"
+                            onClick={() => openEdit(u)}
+                          >
+                            Editar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          )}
+        </div>
+
+        <Dialog
+          open={showForm}
+          onOpenChange={(open) => {
+            if (!open && !saving) {
+              setShowForm(false);
+              setForm({ email: "", password: "", role: "OPERADOR" });
+              setError("");
+            }
           }}
         >
-          <h3 style={{ margin: 0 }}>Crear usuario</h3>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            Email
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              required
-              placeholder="operador@ejemplo.com"
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            Contraseña (mín. 6 caracteres)
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              required
-              minLength={6}
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            Rol
-            <select
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as "ADMIN" | "OPERADOR" }))}
-            >
-              <option value="OPERADOR">Operador</option>
-              <option value="ADMIN">Administrador</option>
-            </select>
-          </label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="submit" disabled={saving}>
-              {saving ? "Creando…" : "Crear"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowForm(false);
-                setForm({ email: "", password: "", role: "OPERADOR" });
-                setError("");
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
-      ) : null}
+          <DialogContent className="sm:max-w-md" showCloseButton={!saving}>
+            <DialogHeader>
+              <DialogTitle>Crear usuario</DialogTitle>
+              <DialogDescription>Email, contraseña y rol.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  className="min-h-12 text-base"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  required
+                  placeholder="operador@ejemplo.com"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Contraseña (mín. 6)</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  className="min-h-12 text-base"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Rol</Label>
+                <select
+                  id="role"
+                  className={selectTouch}
+                  value={form.role}
+                  onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as "ADMIN" | "OPERADOR" }))}
+                >
+                  <option value="OPERADOR">Operador</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="touch-h touch-text"
+                  disabled={saving}
+                  onClick={() => {
+                    setShowForm(false);
+                    setForm({ email: "", password: "", role: "OPERADOR" });
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" size="lg" className="touch-h touch-text" disabled={saving}>
+                  {saving ? "Creando…" : "Crear"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
-      {editing ? (
-        <form
-          onSubmit={handleEditSubmit}
-          style={{
-            marginTop: 20,
-            padding: 16,
-            border: "1px solid #ddd",
-            borderRadius: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            maxWidth: 360
+        <Dialog
+          open={editing !== null}
+          onOpenChange={(open) => {
+            if (!open && !saving) {
+              setEditing(null);
+              setEditForm({ password: "", role: "OPERADOR" });
+              setError("");
+            }
           }}
         >
-          <h3 style={{ margin: 0 }}>Editar: {editing.email}</h3>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            Nueva contraseña (dejar vacío para no cambiar)
-            <input
-              type="password"
-              value={editForm.password}
-              onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
-              placeholder="••••••••"
-              minLength={6}
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            Rol
-            <select
-              value={editForm.role}
-              onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as "ADMIN" | "OPERADOR" }))}
-            >
-              <option value="OPERADOR">Operador</option>
-              <option value="ADMIN">Administrador</option>
-            </select>
-          </label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="submit" disabled={saving || (!editForm.password.trim() && editForm.role === editing.role)}>
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(null);
-                setEditForm({ password: "", role: "OPERADOR" });
-                setError("");
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
-      ) : null}
-
-      <div style={{ marginTop: 24, overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 14 }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "2px solid #ccc" }}>
-              <th style={{ padding: 8 }}>Email</th>
-              <th style={{ padding: 8 }}>Rol</th>
-              <th style={{ padding: 8 }}>Creado</th>
-              <th style={{ padding: 8 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={4} style={{ padding: 12, color: "#666" }}>
-                  Cargando…
-                </td>
-              </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td colSpan={4} style={{ padding: 12, color: "#666" }}>
-                  Sin usuarios.
-                </td>
-              </tr>
-            ) : (
-              users.map((u) => (
-                <tr key={u.id} style={{ borderBottom: "1px solid #eee" }}>
-                  <td style={{ padding: 8 }}>{u.email}</td>
-                  <td style={{ padding: 8 }}>{u.role}</td>
-                  <td style={{ padding: 8 }}>
-                    {new Date(u.createdAt).toLocaleString()}
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    <button type="button" onClick={() => openEdit(u)} style={{ fontSize: 12 }}>
-                      Editar
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+          <DialogContent className="sm:max-w-md" showCloseButton={!saving}>
+            <DialogHeader>
+              <DialogTitle>Editar usuario</DialogTitle>
+              <DialogDescription>{editing?.email}</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="newpass">Nueva contraseña (opcional)</Label>
+                <Input
+                  id="newpass"
+                  type="password"
+                  className="min-h-12 text-base"
+                  value={editForm.password}
+                  onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="Dejar vacío para no cambiar"
+                  minLength={6}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="editrole">Rol</Label>
+                <select
+                  id="editrole"
+                  className={selectTouch}
+                  value={editForm.role}
+                  onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as "ADMIN" | "OPERADOR" }))}
+                >
+                  <option value="OPERADOR">Operador</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="touch-h touch-text"
+                  disabled={saving}
+                  onClick={() => setEditing(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="touch-h touch-text"
+                  disabled={
+                    saving || (!editForm.password.trim() && editForm.role === editing?.role)
+                  }
+                >
+                  {saving ? "Guardando…" : "Guardar"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </PageShell>
     </main>
   );
 }

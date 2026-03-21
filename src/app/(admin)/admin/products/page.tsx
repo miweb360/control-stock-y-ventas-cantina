@@ -1,7 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { AdminBackLink } from "@/components/layout/admin-back-link";
+import { PageShell } from "@/components/layout/page-shell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -12,6 +36,8 @@ interface Product {
   trackStock: boolean;
   createdAt: string;
 }
+
+const inputTouch = "min-h-12 text-base";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -101,155 +127,172 @@ export default function ProductsPage() {
     setModal("edit");
   }
 
-  const styles = {
-    main: { padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 900 } as React.CSSProperties,
-    table: { width: "100%", borderCollapse: "collapse" as const, marginTop: 16 },
-    th: { textAlign: "left" as const, padding: 8, borderBottom: "1px solid #ccc" },
-    td: { padding: 8, borderBottom: "1px solid #eee" },
-    btn: { padding: "6px 12px", cursor: "pointer" as const, marginRight: 8 },
-    input: { padding: 6, width: "100%", boxSizing: "border-box" as const },
-    formRow: { marginBottom: 12 },
-    label: { display: "block" as const, marginBottom: 4, fontSize: 14 },
-    modal: {
-      position: "fixed" as const,
-      inset: 0,
-      background: "rgba(0,0,0,0.5)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    },
-    modalInner: { background: "#fff", padding: 24, borderRadius: 8, width: "100%", maxWidth: 400 }
-  };
+  function handleDialogOpenChange(open: boolean) {
+    if (!open) {
+      if (saving) return;
+      setModal(null);
+      setEditing(null);
+    }
+  }
 
   return (
-    <main style={styles.main}>
-      <nav className="no-print" style={{ marginBottom: 16 }}>
-        <Link href="/admin" style={{ color: "#0066cc", marginRight: 16 }}>
-          ← Admin
-        </Link>
-      </nav>
-      <h1>Productos</h1>
-      {error && (
-        <p style={{ color: "#c00", marginBottom: 12 }} role="alert">
-          {error}
-        </p>
-      )}
-      <button type="button" style={styles.btn} onClick={openCreate}>
-        + Nuevo producto
-      </button>
+    <main>
+      <PageShell>
+        <AdminBackLink />
 
-      {loading ? (
-        <p>Cargando…</p>
-      ) : (
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Nombre</th>
-              <th style={styles.th}>Código</th>
-              <th style={styles.th}>Precio ref.</th>
-              <th style={styles.th}>Estado</th>
-              <th style={styles.th} />
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id}>
-                <td style={styles.td}>{p.name}</td>
-                <td style={styles.td}>{p.barcode ?? "—"}</td>
-                <td style={styles.td}>${p.priceRef.toFixed(2)}</td>
-                <td style={styles.td}>{p.status}</td>
-                <td style={styles.td}>
-                  <button type="button" style={styles.btn} onClick={() => openEdit(p)}>
-                    Editar
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Productos</h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+              Catálogo para venta y control de stock
+            </p>
+          </div>
+          <Button type="button" size="lg" className="touch-h touch-text w-full sm:w-auto" onClick={openCreate}>
+            + Nuevo producto
+          </Button>
+        </div>
 
-      {modal && (
-        <div style={styles.modal} onClick={() => !saving && setModal(null)} role="dialog">
-          <div style={styles.modalInner} onClick={(e) => e.stopPropagation()}>
-            <h2>{modal === "create" ? "Nuevo producto" : "Editar producto"}</h2>
-            <form onSubmit={handleSubmit}>
-              <div style={styles.formRow}>
-                <label style={styles.label} htmlFor="name">
-                  Nombre *
-                </label>
-                <input
+        {error ? (
+          <Alert variant="destructive" className="mt-6" role="alert">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div className="mt-6 rounded-xl border border-border bg-card ring-1 ring-foreground/10">
+          {loading ? (
+            <p className="text-muted-foreground p-6">Cargando…</p>
+          ) : (
+            <ScrollArea className="w-full max-h-[min(70vh,560px)] sm:max-h-none">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[140px]">Nombre</TableHead>
+                    <TableHead className="hidden sm:table-cell">Código</TableHead>
+                    <TableHead>Precio</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell">
+                        {p.barcode ?? "—"}
+                      </TableCell>
+                      <TableCell>${p.priceRef.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge variant={p.status === "ACTIVO" ? "default" : "secondary"}>{p.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          className="touch-h touch-text"
+                          onClick={() => openEdit(p)}
+                        >
+                          Editar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          )}
+        </div>
+
+        <Dialog open={modal !== null} onOpenChange={handleDialogOpenChange}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md" showCloseButton={!saving}>
+            <DialogHeader>
+              <DialogTitle>{modal === "create" ? "Nuevo producto" : "Editar producto"}</DialogTitle>
+              <DialogDescription>
+                {modal === "create" ? "Agregar al catálogo del kiosco." : "Actualizar datos del producto."}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nombre *</Label>
+                <Input
                   id="name"
+                  className={inputTouch}
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   required
                   minLength={2}
-                  style={styles.input}
                 />
               </div>
-              <div style={styles.formRow}>
-                <label style={styles.label} htmlFor="barcode">
-                  Código de barras
-                </label>
-                <input
+              <div className="grid gap-2">
+                <Label htmlFor="barcode">Código de barras</Label>
+                <Input
                   id="barcode"
+                  className={inputTouch}
                   value={form.barcode}
                   onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
-                  style={styles.input}
                 />
               </div>
-              <div style={styles.formRow}>
-                <label style={styles.label} htmlFor="priceRef">
-                  Precio referencia *
-                </label>
-                <input
+              <div className="grid gap-2">
+                <Label htmlFor="priceRef">Precio referencia *</Label>
+                <Input
                   id="priceRef"
                   type="number"
                   step="0.01"
                   min={0}
+                  className={inputTouch}
                   value={form.priceRef || ""}
                   onChange={(e) => setForm((f) => ({ ...f, priceRef: Number(e.target.value) || 0 }))}
                   required
-                  style={styles.input}
                 />
               </div>
-              <div style={styles.formRow}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={form.trackStock}
-                    onChange={(e) => setForm((f) => ({ ...f, trackStock: e.target.checked }))}
-                  />
-                  {" "}Controlar stock
-                </label>
-              </div>
+              <label className="flex cursor-pointer items-center gap-3 text-sm sm:text-base">
+                <input
+                  type="checkbox"
+                  className="size-5 rounded border-input accent-primary"
+                  checked={form.trackStock}
+                  onChange={(e) => setForm((f) => ({ ...f, trackStock: e.target.checked }))}
+                />
+                Controlar stock
+              </label>
               {modal === "edit" && (
-                <div style={styles.formRow}>
-                  <label style={styles.label}>Estado</label>
+                <div className="grid gap-2">
+                  <Label htmlFor="status">Estado</Label>
                   <select
+                    id="status"
+                    className={cn(
+                      "border-input bg-background flex w-full rounded-lg border px-3 py-2 outline-none",
+                      inputTouch
+                    )}
                     value={form.status}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, status: e.target.value as "ACTIVO" | "INACTIVO" }))
                     }
-                    style={styles.input}
                   >
                     <option value="ACTIVO">Activo</option>
                     <option value="INACTIVO">Inactivo</option>
                   </select>
                 </div>
               )}
-              <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-                <button type="submit" disabled={saving} style={styles.btn}>
-                  {saving ? "Guardando…" : "Guardar"}
-                </button>
-                <button type="button" disabled={saving} style={styles.btn} onClick={() => setModal(null)}>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="touch-h touch-text"
+                  disabled={saving}
+                  onClick={() => handleDialogOpenChange(false)}
+                >
                   Cancelar
-                </button>
-              </div>
+                </Button>
+                <Button type="submit" size="lg" className="touch-h touch-text" disabled={saving}>
+                  {saving ? "Guardando…" : "Guardar"}
+                </Button>
+              </DialogFooter>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        </Dialog>
+      </PageShell>
     </main>
   );
 }

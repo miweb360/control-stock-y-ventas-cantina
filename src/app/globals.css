@@ -121,9 +121,25 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     }
   html {
     @apply font-sans;
     }
+}
+
+/* Áreas táctiles cómodas en tablet (encima de tamaños por defecto de shadcn) */
+@layer utilities {
+  .touch-h {
+    @apply min-h-12;
+  }
+  .touch-text {
+    @apply text-base;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }

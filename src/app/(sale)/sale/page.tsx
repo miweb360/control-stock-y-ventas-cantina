@@ -1,6 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PageShell } from "@/components/layout/page-shell";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type SessionItem = {
   id: string;
@@ -27,6 +44,9 @@ type OpenSession = {
   items: SessionItem[];
 };
 
+const selectField =
+  "flex min-h-12 w-full max-w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none";
+
 export default function SalePage() {
   const [session, setSession] = useState<OpenSession | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -37,9 +57,7 @@ export default function SalePage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const addInFlightRef = useRef(false);
-  const [paymentMethod, setPaymentMethod] = useState<"EFECTIVO" | "TRANSFERENCIA" | "QR">(
-    "EFECTIVO"
-  );
+  const [paymentMethod, setPaymentMethod] = useState<"EFECTIVO" | "TRANSFERENCIA" | "QR">("EFECTIVO");
   const [paymentTotal, setPaymentTotal] = useState("");
 
   const loadCurrent = useCallback(async () => {
@@ -133,9 +151,7 @@ export default function SalePage() {
     setBusy(true);
     setError("");
     try {
-      const body: { paymentMethod: string; paymentTotalAmount?: number } = {
-        paymentMethod
-      };
+      const body: { paymentMethod: string; paymentTotalAmount?: number } = { paymentMethod };
       const pt = paymentTotal.trim();
       if (pt !== "") {
         const n = Number(pt);
@@ -164,210 +180,229 @@ export default function SalePage() {
     }
   }
 
-  const subtotal =
-    session?.items.reduce((s, i) => s + i.lineTotal, 0) ?? 0;
+  const subtotal = session?.items.reduce((s, i) => s + i.lineTotal, 0) ?? 0;
+  const noBarcodeProducts = products.filter((p) => !p.barcode);
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 720 }}>
-      <h1>Modo venta (recreo)</h1>
-      <p style={{ color: "#555", fontSize: 14 }}>
-        Un solo recreo abierto a la vez. Agregá ítems por código de barras o selección rápida.
-      </p>
-      {error && (
-        <p style={{ color: "#c00", marginBottom: 12 }} role="alert">
-          {error}
-        </p>
-      )}
-      <p className="no-print">
-        <a href="/api/v1/auth/logout" style={{ color: "#333" }}>
-          Cerrar sesión
-        </a>
-      </p>
-
-      {loading ? (
-        <p>Cargando…</p>
-      ) : !session ? (
-        <section style={{ marginTop: 24 }}>
-          <p>No hay recreo abierto.</p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={openRecess}
-            style={{ padding: "12px 20px", fontSize: 16, cursor: busy ? "wait" : "pointer" }}
-          >
-            Abrir recreo
-          </button>
-        </section>
-      ) : (
-        <section style={{ marginTop: 16 }}>
-          <p style={{ fontSize: 14 }}>
-            <strong>Recreo abierto</strong> desde {new Date(session.openedAt).toLocaleString()} · ID:{" "}
-            <code>{session.id.slice(0, 8)}…</code>
-          </p>
-
-          <div
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              padding: 16,
-              marginTop: 16
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>Escanear / código</h2>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Código de barras</label>
-                <input
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addItem(true))}
-                  placeholder="Escanear…"
-                  style={{ padding: 8, minWidth: 200 }}
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Cantidad</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={999}
-                  value={qty}
-                  onChange={(e) => setQty(Number(e.target.value) || 1)}
-                  style={{ padding: 8, width: 72 }}
-                />
-              </div>
-              <button type="button" disabled={busy || !barcode.trim()} onClick={() => addItem(true)}>
-                Agregar
-              </button>
-            </div>
-          </div>
-
-          <div
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              padding: 16,
-              marginTop: 16
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>Sin código (rápido)</h2>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <select
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(e.target.value)}
-                style={{ padding: 8, minWidth: 220 }}
-              >
-                {products
-                  .filter((p) => !p.barcode)
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (${p.priceRef.toFixed(2)})
-                    </option>
-                  ))}
-              </select>
-              <button
-                type="button"
-                disabled={busy || !selectedProductId}
-                onClick={() => addItem(false)}
-              >
-                Agregar
-              </button>
-            </div>
-            {products.filter((p) => !p.barcode).length === 0 && (
-              <p style={{ fontSize: 13, color: "#666" }}>
-                No hay productos sin código. Creá algunos en Admin → Productos.
-              </p>
-            )}
-          </div>
-
-          <h2 style={{ marginTop: 24 }}>Ticket del recreo</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Producto
-                </th>
-                <th style={{ textAlign: "right", padding: 8, borderBottom: "1px solid #ccc" }}>Qty</th>
-                <th style={{ textAlign: "right", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Subtotal
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {session.items.map((i) => (
-                <tr key={i.id}>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{i.productName}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee", textAlign: "right" }}>
-                    {i.qty}
-                  </td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee", textAlign: "right" }}>
-                    ${i.lineTotal.toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p style={{ textAlign: "right", fontSize: 18, marginTop: 8 }}>
-            <strong>Total: ${subtotal.toFixed(2)}</strong>
-          </p>
-
-          <div
-            style={{
-              border: "1px solid #333",
-              borderRadius: 8,
-              padding: 16,
-              marginTop: 24
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>Cerrar recreo</h2>
-            <p style={{ fontSize: 13, color: "#555" }}>
-              Cobro informativo (no integra medios de pago).
+    <main>
+      <PageShell className="max-w-2xl lg:max-w-3xl">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+              Modo venta (recreo)
+            </h1>
+            <p className="text-muted-foreground text-sm sm:text-base">
+              Un recreo abierto a la vez. Código de barras o selección rápida.
             </p>
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Medio</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
-                style={{ padding: 8 }}
-              >
-                <option value="EFECTIVO">Efectivo</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="QR">QR</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>
-                Monto cobrado (opcional)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={paymentTotal}
-                onChange={(e) => setPaymentTotal(e.target.value)}
-                placeholder={subtotal.toFixed(2)}
-                style={{ padding: 8, width: 160 }}
-              />
-            </div>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={closeRecess}
-              style={{
-                padding: "12px 20px",
-                fontSize: 16,
-                background: "#333",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                cursor: busy ? "wait" : "pointer"
-              }}
-            >
-              Cerrar recreo y generar resumen
-            </button>
           </div>
-        </section>
-      )}
+          <a
+            href="/api/v1/auth/logout"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "no-print touch-h touch-text shrink-0 self-start"
+            )}
+          >
+            Cerrar sesión
+          </a>
+        </div>
+
+        {error ? (
+          <Alert variant="destructive" className="mt-4" role="alert">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {loading ? (
+          <p className="text-muted-foreground mt-8">Cargando…</p>
+        ) : !session ? (
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle>Recreo cerrado</CardTitle>
+              <CardDescription>No hay sesión activa. Abrí un nuevo recreo para vender.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                type="button"
+                size="lg"
+                className="min-h-14 w-full text-base sm:w-auto sm:min-w-[200px]"
+                disabled={busy}
+                onClick={openRecess}
+              >
+                Abrir recreo
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="mt-6 flex flex-col gap-6">
+            <p className="text-muted-foreground text-sm">
+              <span className="text-foreground font-medium">Recreo abierto</span> desde{" "}
+              {new Date(session.openedAt).toLocaleString()} ·{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">{session.id.slice(0, 8)}…</code>
+            </p>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Escanear / código</CardTitle>
+                <CardDescription>Lector pistola o teclado; Enter para agregar</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="grid min-w-0 flex-1 gap-2 sm:min-w-[200px]">
+                  <Label htmlFor="barcode">Código de barras</Label>
+                  <Input
+                    id="barcode"
+                    className="min-h-12 text-base"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void addItem(true);
+                      }
+                    }}
+                    placeholder="Escanear…"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="grid w-full gap-2 sm:w-28">
+                  <Label htmlFor="qty">Cantidad</Label>
+                  <Input
+                    id="qty"
+                    type="number"
+                    min={1}
+                    max={999}
+                    className="min-h-12 text-base"
+                    value={qty}
+                    onChange={(e) => setQty(Number(e.target.value) || 1)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="min-h-12 w-full sm:w-auto"
+                  disabled={busy || !barcode.trim()}
+                  onClick={() => addItem(true)}
+                >
+                  Agregar
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Sin código (rápido)</CardTitle>
+                <CardDescription>Productos vendidos por unidad sin barcode</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                <div className="grid min-w-0 flex-1 gap-2">
+                  <Label htmlFor="productPick">Producto</Label>
+                  <select
+                    id="productPick"
+                    className={selectField}
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                  >
+                    {noBarcodeProducts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (${p.priceRef.toFixed(2)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="min-h-12 w-full sm:w-auto"
+                  disabled={busy || !selectedProductId}
+                  onClick={() => addItem(false)}
+                >
+                  Agregar
+                </Button>
+              </CardContent>
+              {noBarcodeProducts.length === 0 ? (
+                <CardContent className="pt-0">
+                  <p className="text-muted-foreground text-sm">
+                    No hay productos sin código. Creálos en Admin → Productos.
+                  </p>
+                </CardContent>
+              ) : null}
+            </Card>
+
+            <div>
+              <h2 className="font-heading mb-3 text-lg font-semibold">Ticket del recreo</h2>
+              <div className="rounded-xl border border-border bg-card ring-1 ring-foreground/10">
+                <ScrollArea className="max-h-[min(40vh,320px)] w-full sm:max-h-[280px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {session.items.map((i) => (
+                        <TableRow key={i.id}>
+                          <TableCell className="font-medium">{i.productName}</TableCell>
+                          <TableCell className="text-right tabular-nums">{i.qty}</TableCell>
+                          <TableCell className="text-right tabular-nums">${i.lineTotal.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              </div>
+              <p className="mt-3 text-right text-xl font-semibold tabular-nums sm:text-2xl">
+                Total: ${subtotal.toFixed(2)}
+              </p>
+            </div>
+
+            <Card className="border-primary/20 bg-primary/5 ring-1 ring-primary/10">
+              <CardHeader>
+                <CardTitle className="text-lg">Cerrar recreo</CardTitle>
+                <CardDescription>Cobro informativo (sin pasarela de pago)</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="payMethod">Medio</Label>
+                  <select
+                    id="payMethod"
+                    className={selectField}
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
+                  >
+                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                    <option value="QR">QR</option>
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="payTotal">Monto cobrado (opcional)</Label>
+                  <Input
+                    id="payTotal"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className="min-h-12 max-w-xs text-base"
+                    value={paymentTotal}
+                    onChange={(e) => setPaymentTotal(e.target.value)}
+                    placeholder={subtotal.toFixed(2)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="min-h-14 w-full text-base"
+                  disabled={busy}
+                  onClick={closeRecess}
+                >
+                  Cerrar recreo y generar resumen
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </PageShell>
     </main>
   );
 }
