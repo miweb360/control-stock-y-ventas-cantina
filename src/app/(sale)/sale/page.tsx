@@ -1,22 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PageShell } from "@/components/layout/page-shell";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { 
+  ShoppingCart, 
+  Barcode, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  CreditCard, 
+  Banknote, 
+  QrCode,
+  Clock,
+  Package,
+  Loader2,
+  AlertCircle,
+  CheckCircle2
+} from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button-variants";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 type SessionItem = {
@@ -44,9 +49,6 @@ type OpenSession = {
   items: SessionItem[];
 };
 
-const selectField =
-  "flex min-h-12 w-full max-w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none";
-
 export default function SalePage() {
   const [session, setSession] = useState<OpenSession | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -54,11 +56,13 @@ export default function SalePage() {
   const [qty, setQty] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const addInFlightRef = useRef(false);
   const [paymentMethod, setPaymentMethod] = useState<"EFECTIVO" | "TRANSFERENCIA" | "QR">("EFECTIVO");
   const [paymentTotal, setPaymentTotal] = useState("");
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   const loadCurrent = useCallback(async () => {
     const res = await fetch("/api/v1/recess-sessions?current=1");
@@ -94,6 +98,18 @@ export default function SalePage() {
     boot();
   }, [loadCurrent, loadProducts]);
 
+  // Focus barcode input when session opens
+  useEffect(() => {
+    if (session && barcodeInputRef.current) {
+      barcodeInputRef.current.focus();
+    }
+  }, [session]);
+
+  const showSuccess = (msg: string) => {
+    setSuccess(msg);
+    setTimeout(() => setSuccess(""), 2000);
+  };
+
   async function openRecess() {
     setBusy(true);
     setError("");
@@ -107,6 +123,7 @@ export default function SalePage() {
       }
       if (!res.ok) throw new Error(data.error ?? "No se pudo abrir");
       await loadCurrent();
+      showSuccess("Recreo abierto");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -131,13 +148,15 @@ export default function SalePage() {
       const res = await fetch(`/api/v1/recess-sessions/${session.id}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Error al agregar");
       setBarcode("");
       setQty(1);
       await loadCurrent();
+      showSuccess("Producto agregado");
+      barcodeInputRef.current?.focus();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -160,19 +179,14 @@ export default function SalePage() {
       const res = await fetch(`/api/v1/recess-sessions/${session.id}/close`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Error al cerrar");
       setSession(null);
       setPaymentTotal("");
       await loadCurrent();
-      alert(
-        `Recreo cerrado. Total venta: $${Number(data.totalAmount).toFixed(2)}` +
-          (data.paymentTotalAmount != null
-            ? ` | Cobro informado: $${Number(data.paymentTotalAmount).toFixed(2)}`
-            : "")
-      );
+      showSuccess(`Recreo cerrado - Total: $${Number(data.totalAmount).toFixed(2)}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -183,226 +197,293 @@ export default function SalePage() {
   const subtotal = session?.items.reduce((s, i) => s + i.lineTotal, 0) ?? 0;
   const noBarcodeProducts = products.filter((p) => !p.barcode);
 
-  return (
-    <main>
-      <PageShell className="max-w-2xl lg:max-w-3xl">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-              Modo venta (recreo)
-            </h1>
-            <p className="text-muted-foreground text-sm sm:text-base">
-              Un recreo abierto a la vez. Código de barras o selección rápida.
+  const paymentMethods = [
+    { value: "EFECTIVO", label: "Efectivo", icon: Banknote },
+    { value: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
+    { value: "QR", label: "QR", icon: QrCode },
+  ] as const;
+
+  // Loading state
+  if (loading) {
+    return (
+      <AppShell header={<Header title="Punto de Venta" showNav={true} />}>
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  // No session state
+  if (!session) {
+    return (
+      <AppShell header={<Header title="Punto de Venta" showNav={true} />}>
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-muted">
+            <Clock className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-foreground">Recreo Cerrado</h2>
+            <p className="mt-2 text-muted-foreground">
+              No hay sesion activa. Abre un nuevo recreo para comenzar a vender.
             </p>
           </div>
-          <a
-            href="/api/v1/auth/logout"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "lg" }),
-              "no-print touch-h touch-text shrink-0 self-start"
-            )}
+          <Button
+            size="lg"
+            className="h-14 px-8 text-lg"
+            disabled={busy}
+            onClick={openRecess}
           >
-            Cerrar sesión
-          </a>
+            {busy ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <ShoppingCart className="mr-2 h-5 w-5" />
+            )}
+            Abrir Recreo
+          </Button>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              {error}
+            </div>
+          )}
         </div>
+      </AppShell>
+    );
+  }
 
-        {error ? (
-          <Alert variant="destructive" className="mt-4" role="alert">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
+  // Active session - Two column layout
+  return (
+    <AppShell header={<Header title="Punto de Venta" showNav={true} />}>
+      {/* Notifications */}
+      {(error || success) && (
+        <div className="absolute left-1/2 top-16 z-50 -translate-x-1/2 animate-in fade-in slide-in-from-top-2">
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive px-4 py-2 text-sm text-destructive-foreground shadow-lg">
+              <AlertCircle className="h-4 w-4" />
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary px-4 py-2 text-sm text-primary-foreground shadow-lg">
+              <CheckCircle2 className="h-4 w-4" />
+              {success}
+            </div>
+          )}
+        </div>
+      )}
 
-        {loading ? (
-          <p className="text-muted-foreground mt-8">Cargando…</p>
-        ) : !session ? (
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Recreo cerrado</CardTitle>
-              <CardDescription>No hay sesión activa. Abrí un nuevo recreo para vender.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                size="lg"
-                className="min-h-14 w-full text-base sm:w-auto sm:min-w-[200px]"
-                disabled={busy}
-                onClick={openRecess}
-              >
-                Abrir recreo
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="mt-6 flex flex-col gap-6">
-            <p className="text-muted-foreground text-sm">
-              <span className="text-foreground font-medium">Recreo abierto</span> desde{" "}
-              {new Date(session.openedAt).toLocaleString()} ·{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">{session.id.slice(0, 8)}…</code>
-            </p>
+      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+        {/* Left Panel - Input Area */}
+        <div className="flex flex-col gap-4 overflow-auto border-b border-border bg-card p-4 lg:w-[400px] lg:border-b-0 lg:border-r">
+          {/* Session info */}
+          <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+              <span className="font-medium text-foreground">Recreo Activo</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {new Date(session.openedAt).toLocaleTimeString()}
+            </span>
+          </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Escanear / código</CardTitle>
-                <CardDescription>Lector pistola o teclado; Enter para agregar</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-                <div className="grid min-w-0 flex-1 gap-2 sm:min-w-[200px]">
-                  <Label htmlFor="barcode">Código de barras</Label>
-                  <Input
-                    id="barcode"
-                    className="min-h-12 text-base"
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void addItem(true);
-                      }
-                    }}
-                    placeholder="Escanear…"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="grid w-full gap-2 sm:w-28">
-                  <Label htmlFor="qty">Cantidad</Label>
-                  <Input
-                    id="qty"
-                    type="number"
-                    min={1}
-                    max={999}
-                    className="min-h-12 text-base"
-                    value={qty}
-                    onChange={(e) => setQty(Number(e.target.value) || 1)}
-                  />
-                </div>
-                <Button
+          {/* Barcode Scanner */}
+          <div className="space-y-3 rounded-xl border border-border bg-background p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Barcode className="h-4 w-4 text-primary" />
+              Escanear Codigo
+            </div>
+            <div className="flex gap-2">
+              <Input
+                ref={barcodeInputRef}
+                placeholder="Codigo de barras..."
+                className="h-12 flex-1 text-base"
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && barcode.trim()) {
+                    e.preventDefault();
+                    void addItem(true);
+                  }
+                }}
+                autoComplete="off"
+              />
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 px-2">
+                <button
                   type="button"
-                  size="lg"
-                  className="min-h-12 w-full sm:w-auto"
-                  disabled={busy || !barcode.trim()}
-                  onClick={() => addItem(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground disabled:opacity-50"
+                  onClick={() => setQty(Math.max(1, qty - 1))}
+                  disabled={qty <= 1}
                 >
-                  Agregar
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Sin código (rápido)</CardTitle>
-                <CardDescription>Productos vendidos por unidad sin barcode</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                <div className="grid min-w-0 flex-1 gap-2">
-                  <Label htmlFor="productPick">Producto</Label>
-                  <select
-                    id="productPick"
-                    className={selectField}
-                    value={selectedProductId}
-                    onChange={(e) => setSelectedProductId(e.target.value)}
-                  >
-                    {noBarcodeProducts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} (${p.priceRef.toFixed(2)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Button
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="w-8 text-center font-mono text-sm">{qty}</span>
+                <button
                   type="button"
-                  size="lg"
-                  className="min-h-12 w-full sm:w-auto"
+                  className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+                  onClick={() => setQty(qty + 1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <Button
+              className="h-11 w-full"
+              disabled={busy || !barcode.trim()}
+              onClick={() => addItem(true)}
+            >
+              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Agregar
+            </Button>
+          </div>
+
+          {/* Quick Products */}
+          <div className="space-y-3 rounded-xl border border-border bg-background p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Package className="h-4 w-4 text-primary" />
+              Productos Rapidos
+            </div>
+            {noBarcodeProducts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay productos sin codigo de barras.
+              </p>
+            ) : (
+              <>
+                <select
+                  className="flex h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                >
+                  {noBarcodeProducts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} - ${p.priceRef.toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  className="h-11 w-full"
+                  variant="secondary"
                   disabled={busy || !selectedProductId}
                   onClick={() => addItem(false)}
                 >
-                  Agregar
+                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                  Agregar Producto
                 </Button>
-              </CardContent>
-              {noBarcodeProducts.length === 0 ? (
-                <CardContent className="pt-0">
-                  <p className="text-muted-foreground text-sm">
-                    No hay productos sin código. Creálos en Admin → Productos.
-                  </p>
-                </CardContent>
-              ) : null}
-            </Card>
-
-            <div>
-              <h2 className="font-heading mb-3 text-lg font-semibold">Ticket del recreo</h2>
-              <div className="rounded-xl border border-border bg-card ring-1 ring-foreground/10">
-                <ScrollArea className="max-h-[min(40vh,320px)] w-full sm:max-h-[280px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Producto</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Subtotal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {session.items.map((i) => (
-                        <TableRow key={i.id}>
-                          <TableCell className="font-medium">{i.productName}</TableCell>
-                          <TableCell className="text-right tabular-nums">{i.qty}</TableCell>
-                          <TableCell className="text-right tabular-nums">${i.lineTotal.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-              </div>
-              <p className="mt-3 text-right text-xl font-semibold tabular-nums sm:text-2xl">
-                Total: ${subtotal.toFixed(2)}
-              </p>
-            </div>
-
-            <Card className="border-primary/20 bg-primary/5 ring-1 ring-primary/10">
-              <CardHeader>
-                <CardTitle className="text-lg">Cerrar recreo</CardTitle>
-                <CardDescription>Cobro informativo (sin pasarela de pago)</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="payMethod">Medio</Label>
-                  <select
-                    id="payMethod"
-                    className={selectField}
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
-                  >
-                    <option value="EFECTIVO">Efectivo</option>
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                    <option value="QR">QR</option>
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="payTotal">Monto cobrado (opcional)</Label>
-                  <Input
-                    id="payTotal"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    className="min-h-12 max-w-xs text-base"
-                    value={paymentTotal}
-                    onChange={(e) => setPaymentTotal(e.target.value)}
-                    placeholder={subtotal.toFixed(2)}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  size="lg"
-                  className="min-h-14 w-full text-base"
-                  disabled={busy}
-                  onClick={closeRecess}
-                >
-                  Cerrar recreo y generar resumen
-                </Button>
-              </CardContent>
-            </Card>
+              </>
+            )}
           </div>
-        )}
-      </PageShell>
-    </main>
+
+          {/* Payment Section */}
+          <div className="mt-auto space-y-3 rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
+            <Label className="text-sm font-medium">Metodo de Pago</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {paymentMethods.map((method) => {
+                const Icon = method.icon;
+                return (
+                  <button
+                    key={method.value}
+                    type="button"
+                    onClick={() => setPaymentMethod(method.value)}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 text-xs font-medium transition-all",
+                      paymentMethod === method.value
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {method.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="payTotal" className="text-sm">
+                Monto Cobrado (opcional)
+              </Label>
+              <Input
+                id="payTotal"
+                type="number"
+                min={0}
+                step="0.01"
+                className="h-11"
+                value={paymentTotal}
+                onChange={(e) => setPaymentTotal(e.target.value)}
+                placeholder={subtotal.toFixed(2)}
+              />
+            </div>
+            <Button
+              className="h-12 w-full text-base font-semibold"
+              disabled={busy || session.items.length === 0}
+              onClick={closeRecess}
+            >
+              {busy ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-5 w-5" />
+              )}
+              Cerrar Recreo
+            </Button>
+          </div>
+        </div>
+
+        {/* Right Panel - Ticket */}
+        <div className="flex flex-1 flex-col overflow-hidden bg-background">
+          {/* Ticket Header */}
+          <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold text-foreground">Ticket</h2>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                {session.items.length} items
+              </span>
+            </div>
+          </div>
+
+          {/* Ticket Items */}
+          <ScrollArea className="flex-1 p-4">
+            {session.items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <ShoppingCart className="h-12 w-12 text-muted-foreground/30" />
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Escanea un producto para comenzar
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {session.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-foreground">
+                        {item.productName}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.qty} x ${item.unitPriceRef.toFixed(2)}
+                      </p>
+                    </div>
+                    <p className="ml-4 font-mono text-lg font-semibold text-foreground">
+                      ${item.lineTotal.toFixed(2)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Ticket Total */}
+          <div className="border-t-2 border-primary/20 bg-card p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-medium text-muted-foreground">Total</span>
+              <span className="font-mono text-3xl font-bold text-foreground">
+                ${subtotal.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </AppShell>
   );
 }
