@@ -1,21 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AdminBackLink } from "@/components/layout/admin-back-link";
-import { PageShell } from "@/components/layout/page-shell";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Loader2,
+  BarChart3,
+  Calendar,
+  TrendingUp,
+  ShoppingBag,
+  Download,
+  Printer,
+  Eye,
+  DollarSign,
+  Clock
+} from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { Header } from "@/components/layout/header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -23,7 +34,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
@@ -114,10 +125,6 @@ function sevenDaysAgoUtc(): string {
   return d.toISOString().slice(0, 10);
 }
 
-const dateInput = "min-h-12 text-base";
-const selectInput =
-  "flex min-h-12 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none";
-
 export default function ReportsPage() {
   const [from, setFrom] = useState(sevenDaysAgoUtc);
   const [to, setTo] = useState(todayUtc);
@@ -151,7 +158,7 @@ export default function ReportsPage() {
         fetch(`/api/v1/reports/top-products?${qp}&limit=15`),
         fetch(`/api/v1/reports/sales-by-recess?${qp}&limit=50`),
         fetch(`/api/v1/reports/sales-by-day?${qp}`),
-        fetch(`/api/v1/reports/sales-by-day-detail?${qp}`)
+        fetch(`/api/v1/reports/sales-by-day-detail?${qp}`),
       ]);
       if (
         sRes.status === 403 ||
@@ -235,431 +242,414 @@ export default function ReportsPage() {
     window.open(`/admin/reports/print?${p.toString()}`, "_blank", "noopener,noreferrer");
   }
 
-  return (
-    <main>
-      <PageShell className="max-w-6xl">
-        <AdminBackLink />
-
-        <div className="no-print mb-4 flex flex-wrap gap-3">
-          <a
-            href="/api/v1/auth/logout"
-            className={cn(buttonVariants({ variant: "outline", size: "lg" }), "touch-h touch-text")}
-          >
-            Cerrar sesión
-          </a>
+  if (loading) {
+    return (
+      <AppShell header={<Header title="Reportes" showNav={true} />}>
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      </AppShell>
+    );
+  }
 
-        <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-          Reportes de ventas
-        </h1>
-        <p className="text-muted-foreground no-print mt-1 text-sm sm:text-base">
-          Solo recreos <strong>cerrados</strong> en el rango (UTC).
-        </p>
+  if (error) {
+    return (
+      <AppShell header={<Header title="Reportes" showNav={true} />}>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+          <BarChart3 className="h-12 w-12 text-destructive/50" />
+          <p className="text-destructive">{error}</p>
+          <Button onClick={() => load()}>Reintentar</Button>
+        </div>
+      </AppShell>
+    );
+  }
 
-        <div className="no-print mt-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="grid gap-2">
-            <Label htmlFor="from">Desde</Label>
+  return (
+    <AppShell header={<Header title="Reportes" showNav={true} />}>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Filters Toolbar */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="from" className="text-sm">Desde</Label>
             <Input
               id="from"
               type="date"
-              className={dateInput}
+              className="h-9 w-36"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="to">Hasta</Label>
-            <Input id="to" type="date" className={dateInput} value={to} onChange={(e) => setTo(e.target.value)} />
+          <div className="flex items-center gap-2">
+            <Label htmlFor="to" className="text-sm">Hasta</Label>
+            <Input
+              id="to"
+              type="date"
+              className="h-9 w-36"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
           </div>
-          <Button
-            type="button"
-            size="lg"
-            className="touch-h touch-text w-full sm:w-auto"
-            onClick={() => void load()}
-            disabled={loading}
-          >
-            {loading ? "Cargando…" : "Actualizar"}
+          <Button size="sm" onClick={() => load()}>
+            Actualizar
           </Button>
-          <label className="flex min-h-12 items-center gap-2 rounded-md border px-3 text-sm">
+          <div className="h-6 w-px bg-border" />
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+            value={reportTarget}
+            onChange={(e) => setReportTarget(e.target.value as "daily" | "recess")}
+          >
+            <option value="daily">Diario</option>
+            <option value="recess">Por Recreo</option>
+          </select>
+          <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={includePrintDetail}
               onChange={(e) => setIncludePrintDetail(e.target.checked)}
+              className="accent-primary"
             />
-            Incluir detalle en impresión/CSV
+            Incluir detalle
           </label>
-          <div className="grid gap-2">
-            <Label htmlFor="target">Reporte a exportar/imprimir</Label>
-            <select
-              id="target"
-              className={selectInput}
-              value={reportTarget}
-              onChange={(e) => setReportTarget(e.target.value as "daily" | "recess")}
-            >
-              <option value="daily">Ventas diarias</option>
-              <option value="recess">Ventas por recreo</option>
-            </select>
+          <div className="ml-auto flex gap-2">
+            <Button size="sm" variant="outline" onClick={downloadCsv}>
+              <Download className="mr-2 h-4 w-4" />
+              CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={openPrintReport}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimir
+            </Button>
           </div>
-          {summary && top && byRecess && byDay && byDayDetail ? (
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                className="touch-h touch-text w-full sm:w-auto"
-                onClick={downloadCsv}
-              >
-                Descargar CSV
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="touch-h touch-text w-full sm:w-auto"
-                onClick={openPrintReport}
-              >
-                Imprimir
-              </Button>
-            </>
-          ) : null}
         </div>
 
-        {error ? (
-          <Alert variant="destructive" className="mt-6" role="alert">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {summary && !error ? (
-          <>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Recreos cerrados</CardDescription>
-                  <CardTitle className="text-3xl font-semibold tabular-nums">
-                    {summary.closedSessionsCount}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Facturación (suma totalAmount)</CardDescription>
-                  <CardTitle className="text-3xl font-semibold tabular-nums">
-                    ${summary.totalRevenue.toFixed(2)}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-            </div>
-            <p className="text-muted-foreground mt-2 text-xs sm:text-sm">{summary.period.timezoneNote}</p>
-
-            <h2 className="font-heading mt-10 text-xl font-semibold">Ventas por recreo</h2>
-            <div className="mt-4 rounded-xl border border-border bg-card ring-1 ring-foreground/10">
-              <ScrollArea className="max-h-[min(50vh,400px)] w-full sm:max-h-none">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="no-print">Sel.</TableHead>
-                      <TableHead>Cerrado</TableHead>
-                      <TableHead>Líneas</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead className="hidden md:table-cell">Cobro (info)</TableHead>
-                      <TableHead className="no-print text-right">Detalle</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {byRecess && byRecess.items.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-muted-foreground">
-                          Sin datos en este rango.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      byRecess?.items.map((s) => (
-                        <TableRow key={s.id}>
-                          <TableCell className="no-print">
-                            <input
-                              type="checkbox"
-                              checked={selectedRecessIds.includes(s.id)}
-                              onChange={() => toggleRecess(s.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-sm">
-                            {s.closedAt ? new Date(s.closedAt).toLocaleString() : "—"}
-                          </TableCell>
-                          <TableCell>{s.lineCount}</TableCell>
-                          <TableCell className="tabular-nums">${s.totalAmount.toFixed(2)}</TableCell>
-                          <TableCell className="hidden text-sm md:table-cell">
-                            {s.paymentMethod ?? "—"}
-                            {s.paymentTotalAmount != null ? ` $${s.paymentTotalAmount.toFixed(2)}` : ""}
-                          </TableCell>
-                          <TableCell className="no-print text-right">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="min-h-9"
-                              onClick={() => setSelectedRecessId(s.id)}
-                            >
-                              Ver detalle
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
-
-            <h2 className="font-heading mt-10 text-xl font-semibold">Ventas diarias</h2>
-            <div className="mt-4 rounded-xl border border-border bg-card ring-1 ring-foreground/10">
-              <ScrollArea className="max-h-[min(45vh,360px)] w-full sm:max-h-none">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="no-print">Sel.</TableHead>
-                      <TableHead>Día (UTC)</TableHead>
-                      <TableHead>Recreos cerrados</TableHead>
-                      <TableHead>Facturación</TableHead>
-                      <TableHead className="no-print text-right">Detalle</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {byDay && byDay.items.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-muted-foreground">
-                          Sin datos en este rango.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      byDay?.items.map((d) => (
-                        <TableRow key={d.day}>
-                          <TableCell className="no-print">
-                            <input
-                              type="checkbox"
-                              checked={selectedDays.includes(d.day)}
-                              onChange={() => toggleDay(d.day)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{d.day}</TableCell>
-                          <TableCell>{d.sessionCount}</TableCell>
-                          <TableCell className="tabular-nums">${d.totalRevenue.toFixed(2)}</TableCell>
-                          <TableCell className="no-print text-right">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="min-h-9"
-                              onClick={() => setSelectedDay(d.day)}
-                            >
-                              Ver detalle
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
-            <p className="text-muted-foreground no-print mt-2 text-xs">
-              Seleccionados: {selectedDays.length} día(s) y {selectedRecessIds.length} recreo(s). Si no seleccionás
-              nada, exporta/imprime todo el rango filtrado.
-            </p>
-          </>
-        ) : null}
-
-        {top && !error ? (
-          <>
-            <h2 className="font-heading mt-10 text-xl font-semibold">Top productos</h2>
-            <div className="mt-4 rounded-xl border border-border bg-card ring-1 ring-foreground/10">
-              <ScrollArea className="max-h-[min(45vh,360px)] w-full sm:max-h-none">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Producto</TableHead>
-                      <TableHead>Unidades</TableHead>
-                      <TableHead>Importe</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {top.items.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-muted-foreground">
-                          Sin ventas en el período.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      top.items.map((r) => (
-                        <TableRow key={r.productId}>
-                          <TableCell className="font-medium">{r.productName}</TableCell>
-                          <TableCell>{r.totalQty}</TableCell>
-                          <TableCell className="tabular-nums">${r.totalAmount.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
-          </>
-        ) : null}
-
-        {includePrintDetail && byDayDetail ? (
-          <div className="mt-10">
-            <h2 className="font-heading text-xl font-semibold">Detalle de ventas (impresión opcional)</h2>
-            {byDayDetail.items.length === 0 ? (
-              <p className="text-muted-foreground mt-2 text-sm">Sin detalle para imprimir en este rango.</p>
-            ) : (
-              <div className="mt-4 space-y-6">
-                {byDayDetail.items.map((day) => (
-                  <Card key={day.day}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Día {day.day}</CardTitle>
-                      <CardDescription>
-                        Recreos: {day.sessionCount} · Total: ${day.totalRevenue.toFixed(2)}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {day.sessions.map((s) => (
-                        <div key={s.id} className="rounded-md border p-3">
-                          <p className="text-sm font-medium">
-                            Recreo {s.id.slice(0, 8)}… · {s.closedAt ? new Date(s.closedAt).toLocaleString() : "—"} · $
-                            {s.totalAmount.toFixed(2)}
-                          </p>
-                          <div className="mt-2 rounded-md border">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Producto</TableHead>
-                                  <TableHead className="text-right">Qty</TableHead>
-                                  <TableHead className="text-right">Precio</TableHead>
-                                  <TableHead className="text-right">Subtotal</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {s.items.map((item) => (
-                                  <TableRow key={item.id}>
-                                    <TableCell>{item.productName}</TableCell>
-                                    <TableCell className="text-right">{item.qty}</TableCell>
-                                    <TableCell className="text-right">${item.unitPriceRef.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right">${item.lineTotal.toFixed(2)}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                ))}
+        {/* Content */}
+        <ScrollArea className="flex-1">
+          <div className="space-y-6 p-4 md:p-6">
+            {/* Summary Cards */}
+            {summary && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardDescription>Facturacion Total</CardDescription>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="font-mono text-2xl font-bold">${summary.totalRevenue.toFixed(2)}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardDescription>Recreos Cerrados</CardDescription>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="font-mono text-2xl font-bold">{summary.closedSessionsCount}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardDescription>Promedio por Recreo</CardDescription>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="font-mono text-2xl font-bold">
+                      ${summary.closedSessionsCount > 0 
+                        ? (summary.totalRevenue / summary.closedSessionsCount).toFixed(2) 
+                        : "0.00"}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardDescription>Dias con Ventas</CardDescription>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="font-mono text-2xl font-bold">{byDay?.items.length ?? 0}</p>
+                  </CardContent>
+                </Card>
               </div>
             )}
-          </div>
-        ) : null}
-      </PageShell>
 
-      <Dialog open={selectedRecessId !== null} onOpenChange={(open) => !open && setSelectedRecessId(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Detalle de venta por recreo</DialogTitle>
-            <DialogDescription>
-              {selectedSessionDetail ?
-                `Recreo ${selectedSessionDetail.id.slice(0, 8)}… · ${selectedSessionDetail.closedAt ? new Date(selectedSessionDetail.closedAt).toLocaleString() : "—"}`
-              : "Cargando detalle..."}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedSessionDetail ? (
-            <div className="space-y-3">
-              <p className="text-sm">
-                Líneas: {selectedSessionDetail.lineCount} · Total: ${selectedSessionDetail.totalAmount.toFixed(2)}
-              </p>
-              <div className="rounded-md border">
-                <ScrollArea className="max-h-[50vh]">
+            {/* Two Column Layout */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Daily Sales */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">Ventas Diarias</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[300px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-8"></TableHead>
+                          <TableHead>Dia</TableHead>
+                          <TableHead className="text-center">Recreos</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="w-10"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {byDay?.items.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                              Sin datos
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          byDay?.items.map((d) => (
+                            <TableRow key={d.day}>
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDays.includes(d.day)}
+                                  onChange={() => toggleDay(d.day)}
+                                  className="accent-primary"
+                                />
+                              </TableCell>
+                              <TableCell className="font-medium">{d.day}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="secondary">{d.sessionCount}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-mono">
+                                ${d.totalRevenue.toFixed(2)}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => setSelectedDay(d.day)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Top Products */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">Top Productos</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-1 p-4">
+                      {top?.items.length === 0 ? (
+                        <p className="text-center text-muted-foreground">Sin ventas</p>
+                      ) : (
+                        top?.items.map((product, index) => (
+                          <div
+                            key={product.productId}
+                            className="flex items-center gap-3 rounded-lg p-2 hover:bg-muted/50"
+                          >
+                            <span className={cn(
+                              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                              index < 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                            )}>
+                              {index + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium">{product.productName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {product.totalQty} unidades
+                              </p>
+                            </div>
+                            <span className="font-mono text-sm font-semibold">
+                              ${product.totalAmount.toFixed(2)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sales by Recess */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Ventas por Recreo</CardTitle>
+                </div>
+                <CardDescription>
+                  Seleccionados: {selectedDays.length} dia(s) y {selectedRecessIds.length} recreo(s)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[300px]">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Producto</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Precio</TableHead>
-                        <TableHead className="text-right">Subtotal</TableHead>
+                        <TableHead className="w-8"></TableHead>
+                        <TableHead>Cerrado</TableHead>
+                        <TableHead className="text-center">Lineas</TableHead>
+                        <TableHead>Metodo</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedSessionDetail.items.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.productName}</TableCell>
-                          <TableCell className="text-right">{item.qty}</TableCell>
-                          <TableCell className="text-right">${item.unitPriceRef.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">${item.lineTotal.toFixed(2)}</TableCell>
+                      {byRecess?.items.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            Sin datos
+                          </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        byRecess?.items.map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={selectedRecessIds.includes(s.id)}
+                                onChange={() => toggleRecess(s.id)}
+                                className="accent-primary"
+                              />
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {s.closedAt ? new Date(s.closedAt).toLocaleString() : "-"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary">{s.lineCount}</Badge>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {s.paymentMethod ?? "-"}
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-semibold">
+                              ${s.totalAmount.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setSelectedRecessId(s.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </ScrollArea>
-              </div>
-            </div>
-          ) : null}
+              </CardContent>
+            </Card>
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Recess Detail Dialog */}
+      <Dialog open={selectedRecessId !== null} onOpenChange={(open) => !open && setSelectedRecessId(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalle del Recreo</DialogTitle>
+            <DialogDescription>
+              {selectedSessionDetail
+                ? `${selectedSessionDetail.closedAt ? new Date(selectedSessionDetail.closedAt).toLocaleString() : "-"} - Total: $${selectedSessionDetail.totalAmount.toFixed(2)}`
+                : "Cargando..."}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSessionDetail && (
+            <ScrollArea className="max-h-[50vh]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Producto</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Precio</TableHead>
+                    <TableHead className="text-right">Subtotal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedSessionDetail.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.productName}</TableCell>
+                      <TableCell className="text-right">{item.qty}</TableCell>
+                      <TableCell className="text-right font-mono">${item.unitPriceRef.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono font-semibold">${item.lineTotal.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
 
+      {/* Day Detail Dialog */}
       <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Detalle de venta diaria</DialogTitle>
+            <DialogTitle>Detalle del Dia {selectedDay}</DialogTitle>
             <DialogDescription>
-              {selectedDayDetail ?
-                `${selectedDayDetail.day} · Recreos: ${selectedDayDetail.sessionCount} · Total: $${selectedDayDetail.totalRevenue.toFixed(2)}`
-              : "Cargando detalle..."}
+              {selectedDayDetail
+                ? `Recreos: ${selectedDayDetail.sessionCount} - Total: $${selectedDayDetail.totalRevenue.toFixed(2)}`
+                : "Cargando..."}
             </DialogDescription>
           </DialogHeader>
-          {selectedDayDetail ? (
+          {selectedDayDetail && (
             <ScrollArea className="max-h-[60vh]">
-              <div className="space-y-4 pr-2">
+              <div className="space-y-4">
                 {selectedDayDetail.sessions.map((session) => (
                   <Card key={session.id}>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Recreo {session.id.slice(0, 8)}…</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">
+                          Recreo {session.id.slice(0, 8)}...
+                        </CardTitle>
+                        <span className="font-mono font-semibold">
+                          ${session.totalAmount.toFixed(2)}
+                        </span>
+                      </div>
                       <CardDescription>
-                        {session.closedAt ? new Date(session.closedAt).toLocaleString() : "—"} · Líneas: {session.lineCount}
-                        {" · "}Total: ${session.totalAmount.toFixed(2)}
+                        {session.closedAt ? new Date(session.closedAt).toLocaleTimeString() : "-"} - {session.lineCount} items
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Producto</TableHead>
-                              <TableHead className="text-right">Qty</TableHead>
-                              <TableHead className="text-right">Precio</TableHead>
-                              <TableHead className="text-right">Subtotal</TableHead>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Producto</TableHead>
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="text-right">Subtotal</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {session.items.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.productName}</TableCell>
+                              <TableCell className="text-right">{item.qty}</TableCell>
+                              <TableCell className="text-right font-mono">${item.lineTotal.toFixed(2)}</TableCell>
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {session.items.map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell>{item.productName}</TableCell>
-                                <TableCell className="text-right">{item.qty}</TableCell>
-                                <TableCell className="text-right">${item.unitPriceRef.toFixed(2)}</TableCell>
-                                <TableCell className="text-right">${item.lineTotal.toFixed(2)}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             </ScrollArea>
-          ) : null}
+          )}
         </DialogContent>
       </Dialog>
-    </main>
+    </AppShell>
   );
 }
