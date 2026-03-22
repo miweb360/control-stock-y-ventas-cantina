@@ -125,6 +125,8 @@ function sevenDaysAgoUtc(): string {
   return d.toISOString().slice(0, 10);
 }
 
+type ReportTab = "overview" | "daily" | "recess" | "top";
+
 export default function ReportsPage() {
   const [from, setFrom] = useState(sevenDaysAgoUtc);
   const [to, setTo] = useState(todayUtc);
@@ -141,6 +143,7 @@ export default function ReportsPage() {
   const [selectedRecessIds, setSelectedRecessIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reportTab, setReportTab] = useState<ReportTab>("overview");
 
   const qp = useMemo(() => {
     const p = new URLSearchParams();
@@ -242,6 +245,17 @@ export default function ReportsPage() {
     window.open(`/admin/reports/print?${p.toString()}`, "_blank", "noopener,noreferrer");
   }
 
+  function printRecessSession(sessionId: string, closedAt: string | null, openedAt: string) {
+    const day = (closedAt ?? openedAt).slice(0, 10);
+    const p = new URLSearchParams();
+    p.set("from", day);
+    p.set("to", day);
+    p.set("target", "recess");
+    p.set("recessIds", sessionId);
+    p.set("includeDetail", "1");
+    window.open(`/admin/reports/print?${p.toString()}`, "_blank", "noopener,noreferrer");
+  }
+
   if (loading) {
     return (
       <AppShell header={<Header title="Reportes" showNav={true} />}>
@@ -264,9 +278,16 @@ export default function ReportsPage() {
     );
   }
 
+  const tabDefs: { id: ReportTab; label: string; icon: typeof BarChart3 }[] = [
+    { id: "overview", label: "Resumen", icon: BarChart3 },
+    { id: "daily", label: "Ventas diarias", icon: Calendar },
+    { id: "recess", label: "Por recreo", icon: ShoppingBag },
+    { id: "top", label: "Top productos", icon: TrendingUp },
+  ];
+
   return (
     <AppShell header={<Header title="Reportes" showNav={true} />}>
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Filters Toolbar */}
         <div className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
           <div className="flex items-center gap-2">
@@ -322,11 +343,27 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Content */}
-        <ScrollArea className="flex-1">
+        {/* Vista por pestañas */}
+        <div className="flex flex-wrap gap-2 border-b border-border bg-muted/30 px-4 py-2">
+          {tabDefs.map(({ id, label, icon: Icon }) => (
+            <Button
+              key={id}
+              type="button"
+              variant={reportTab === id ? "default" : "ghost"}
+              size="sm"
+              className={cn("gap-2", reportTab === id && "shadow-sm")}
+              onClick={() => setReportTab(id)}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </Button>
+          ))}
+        </div>
+
+        {/* Content: scroll interno (min-h-0 evita que flex impida el scroll) */}
+        <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-6 p-4 md:p-6">
-            {/* Summary Cards */}
-            {summary && (
+            {reportTab === "overview" && summary && (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -353,8 +390,8 @@ export default function ReportsPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="font-mono text-2xl font-bold">
-                      ${summary.closedSessionsCount > 0 
-                        ? (summary.totalRevenue / summary.closedSessionsCount).toFixed(2) 
+                      ${summary.closedSessionsCount > 0
+                        ? (summary.totalRevenue / summary.closedSessionsCount).toFixed(2)
                         : "0.00"}
                     </p>
                   </CardContent>
@@ -371,18 +408,19 @@ export default function ReportsPage() {
               </div>
             )}
 
-            {/* Two Column Layout */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Daily Sales */}
+            {reportTab === "daily" && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-primary" />
                     <CardTitle className="text-lg">Ventas Diarias</CardTitle>
                   </div>
+                  <CardDescription>
+                    Marca dias para CSV o imprimir; el ojo abre el detalle del dia.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="max-h-[min(520px,calc(100dvh-14rem))]">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -436,17 +474,19 @@ export default function ReportsPage() {
                   </ScrollArea>
                 </CardContent>
               </Card>
+            )}
 
-              {/* Top Products */}
+            {reportTab === "top" && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-primary" />
                     <CardTitle className="text-lg">Top Productos</CardTitle>
                   </div>
+                  <CardDescription>Ranking por monto en el rango de fechas.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="max-h-[min(520px,calc(100dvh-14rem))]">
                     <div className="space-y-1 p-4">
                       {top?.items.length === 0 ? (
                         <p className="text-center text-muted-foreground">Sin ventas</p>
@@ -478,22 +518,22 @@ export default function ReportsPage() {
                   </ScrollArea>
                 </CardContent>
               </Card>
-            </div>
+            )}
 
-            {/* Sales by Recess */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Ventas por Recreo</CardTitle>
-                </div>
-                <CardDescription>
-                  Seleccionados: {selectedDays.length} dia(s) y {selectedRecessIds.length} recreo(s)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[300px]">
-                  <Table>
+            {reportTab === "recess" && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">Ventas por Recreo</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Seleccionados: {selectedDays.length} dia(s) y {selectedRecessIds.length} recreo(s)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="max-h-[min(520px,calc(100dvh-14rem))]">
+                    <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-8"></TableHead>
@@ -552,6 +592,7 @@ export default function ReportsPage() {
                 </ScrollArea>
               </CardContent>
             </Card>
+            )}
           </div>
         </ScrollArea>
       </div>
@@ -591,6 +632,24 @@ export default function ReportsPage() {
               </Table>
             </ScrollArea>
           )}
+          {selectedSessionDetail && selectedRecessId ? (
+            <div className="flex justify-end pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  printRecessSession(
+                    selectedRecessId,
+                    selectedSessionDetail.closedAt,
+                    selectedSessionDetail.openedAt
+                  )
+                }
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </Button>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

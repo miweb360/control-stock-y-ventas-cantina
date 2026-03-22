@@ -1,20 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { 
-  ShoppingCart, 
-  Barcode, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  CreditCard, 
-  Banknote, 
+import {
+  ShoppingCart,
+  Barcode,
+  Plus,
+  Minus,
+  Trash2,
+  CreditCard,
+  Banknote,
   QrCode,
   Clock,
   Package,
   Loader2,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Printer,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Header } from "@/components/layout/header";
@@ -22,6 +23,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 type SessionItem = {
@@ -49,6 +66,18 @@ type OpenSession = {
   items: SessionItem[];
 };
 
+/** Respuesta de GET /api/v1/recess-sessions/[id] tras cerrar el recreo */
+type ClosedSessionDetail = {
+  id: string;
+  status: string;
+  openedAt: string;
+  closedAt: string | null;
+  totalAmount: number | null;
+  paymentMethod: string | null;
+  paymentTotalAmount: number | null;
+  items: SessionItem[];
+};
+
 export default function SalePage() {
   const [session, setSession] = useState<OpenSession | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -63,6 +92,7 @@ export default function SalePage() {
   const [paymentMethod, setPaymentMethod] = useState<"EFECTIVO" | "TRANSFERENCIA" | "QR">("EFECTIVO");
   const [paymentTotal, setPaymentTotal] = useState("");
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const [closedSessionDetail, setClosedSessionDetail] = useState<ClosedSessionDetail | null>(null);
 
   const loadCurrent = useCallback(async () => {
     const res = await fetch("/api/v1/recess-sessions?current=1");
@@ -165,10 +195,22 @@ export default function SalePage() {
     }
   }
 
+  function printClosedSession(detail: ClosedSessionDetail) {
+    const day = (detail.closedAt ?? detail.openedAt).slice(0, 10);
+    const p = new URLSearchParams();
+    p.set("from", day);
+    p.set("to", day);
+    p.set("target", "recess");
+    p.set("recessIds", detail.id);
+    p.set("includeDetail", "1");
+    window.open(`/admin/reports/print?${p.toString()}`, "_blank", "noopener,noreferrer");
+  }
+
   async function closeRecess() {
     if (!session) return;
     setBusy(true);
     setError("");
+    const sessionId = session.id;
     try {
       const body: { paymentMethod: string; paymentTotalAmount?: number } = { paymentMethod };
       const pt = paymentTotal.trim();
@@ -176,17 +218,25 @@ export default function SalePage() {
         const n = Number(pt);
         if (!Number.isNaN(n) && n >= 0) body.paymentTotalAmount = n;
       }
-      const res = await fetch(`/api/v1/recess-sessions/${session.id}/close`, {
+      const res = await fetch(`/api/v1/recess-sessions/${sessionId}/close`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Error al cerrar");
-      setSession(null);
       setPaymentTotal("");
+      const detailRes = await fetch(`/api/v1/recess-sessions/${sessionId}`);
+      let detail: ClosedSessionDetail | null = null;
+      if (detailRes.ok) {
+        detail = (await detailRes.json()) as ClosedSessionDetail;
+      }
       await loadCurrent();
-      showSuccess(`Recreo cerrado - Total: $${Number(data.totalAmount).toFixed(2)}`);
+      if (detail) {
+        setClosedSessionDetail(detail);
+      } else {
+        showSuccess(`Recreo cerrado - Total: $${Number(data.totalAmount).toFixed(2)}`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -214,10 +264,9 @@ export default function SalePage() {
     );
   }
 
-  // No session state
-  if (!session) {
-    return (
-      <AppShell header={<Header title="Punto de Venta" showNav={true} />}>
+  return (
+    <AppShell header={<Header title="Punto de Venta" showNav={true} />}>
+      {!session ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-muted">
             <Clock className="h-10 w-10 text-muted-foreground" />
@@ -248,13 +297,8 @@ export default function SalePage() {
             </div>
           )}
         </div>
-      </AppShell>
-    );
-  }
-
-  // Active session - Two column layout
-  return (
-    <AppShell header={<Header title="Punto de Venta" showNav={true} />}>
+      ) : (
+        <>
       {/* Notifications */}
       {(error || success) && (
         <div className="absolute left-1/2 top-16 z-50 -translate-x-1/2 animate-in fade-in slide-in-from-top-2">
@@ -484,6 +528,86 @@ export default function SalePage() {
           </div>
         </div>
       </div>
+        </>
+      )}
+
+      <Dialog open={closedSessionDetail !== null} onOpenChange={(open) => !open && setClosedSessionDetail(null)}>
+        <DialogContent className="max-w-2xl sm:max-w-2xl" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Recreo cerrado</DialogTitle>
+            <DialogDescription>
+              {closedSessionDetail
+                ? `Cerrado: ${closedSessionDetail.closedAt ? new Date(closedSessionDetail.closedAt).toLocaleString() : "—"}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {closedSessionDetail ? (
+            <>
+              <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <span className="text-muted-foreground">Total sesion</span>
+                  <span className="font-mono font-semibold">
+                    ${(closedSessionDetail.totalAmount ?? 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap justify-between gap-2">
+                  <span className="text-muted-foreground">Metodo de pago</span>
+                  <span>{closedSessionDetail.paymentMethod ?? "—"}</span>
+                </div>
+                {closedSessionDetail.paymentTotalAmount != null ? (
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <span className="text-muted-foreground">Monto cobrado</span>
+                    <span className="font-mono">${closedSessionDetail.paymentTotalAmount.toFixed(2)}</span>
+                  </div>
+                ) : null}
+              </div>
+              <ScrollArea className="max-h-[50vh] rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Producto</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Precio</TableHead>
+                      <TableHead className="text-right">Subtotal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {closedSessionDetail.items.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          Sin lineas (recreo sin ventas)
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      closedSessionDetail.items.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.productName}</TableCell>
+                          <TableCell className="text-right">{item.qty}</TableCell>
+                          <TableCell className="text-right font-mono">${item.unitPriceRef.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono font-semibold">
+                            ${item.lineTotal.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </>
+          ) : null}
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setClosedSessionDetail(null)}>
+              Cerrar
+            </Button>
+            {closedSessionDetail ? (
+              <Button type="button" onClick={() => printClosedSession(closedSessionDetail)}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
