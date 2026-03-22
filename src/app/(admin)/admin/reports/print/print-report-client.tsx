@@ -49,6 +49,8 @@ export default function PrintReportClient({ searchParams }: { searchParams: Reco
   const [error, setError] = useState("");
   const [dailyItems, setDailyItems] = useState<DayDetail[]>([]);
   const [recessItems, setRecessItems] = useState<RecessDetail[]>([]);
+  /** Solo en cliente: evita hydration mismatch (servidor vs cliente tienen distinta hora). */
+  const [emittedAt, setEmittedAt] = useState<string | null>(null);
 
   const from = searchParams.from ?? "";
   const to = searchParams.to ?? "";
@@ -56,6 +58,10 @@ export default function PrintReportClient({ searchParams }: { searchParams: Reco
   const includeDetail = searchParams.includeDetail === "1" || searchParams.includeDetail === "true";
   const days = useMemo(() => parseList(searchParams.days ?? ""), [searchParams.days]);
   const recessIds = useMemo(() => parseList(searchParams.recessIds ?? ""), [searchParams.recessIds]);
+
+  useEffect(() => {
+    setEmittedAt(new Date().toLocaleString());
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -123,7 +129,9 @@ export default function PrintReportClient({ searchParams }: { searchParams: Reco
         <p className="text-muted-foreground text-sm">
           Tipo: {target === "daily" ? "Ventas diarias" : "Ventas por recreo"} · Rango: {from} a {to}
         </p>
-        <p className="text-muted-foreground text-sm">Emitido: {new Date().toLocaleString()}</p>
+        <p className="text-muted-foreground text-sm">
+          Emitido: {emittedAt ?? "—"}
+        </p>
       </header>
 
       {loading ? <p>Cargando reporte…</p> : null}
