@@ -103,19 +103,17 @@ export function Header({ title, showNav = true, className }: HeaderProps) {
         {/* User Dropdown */}
         {user && (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2 pl-2 pr-1.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
-                  <UserIcon className="h-4 w-4 text-primary" />
-                </div>
-                <div className="hidden flex-col items-start text-left lg:flex">
-                  <span className="text-sm font-medium leading-none">{user.email}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {user.role === "ADMIN" ? "Administrador" : "Vendedor"}
-                  </span>
-                </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </Button>
+            <DropdownMenuTrigger className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
+                <UserIcon className="h-4 w-4 text-primary" />
+              </div>
+              <div className="hidden flex-col items-start text-left lg:flex">
+                <span className="text-sm font-medium leading-none">{user.email}</span>
+                <span className="text-xs text-muted-foreground">
+                  {user.role === "ADMIN" ? "Administrador" : "Vendedor"}
+                </span>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="font-normal">

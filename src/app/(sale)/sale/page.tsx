@@ -414,7 +414,7 @@ export default function SalePage() {
             </div>
             <Button
               className="h-12 w-full text-base font-semibold"
-              disabled={busy || session.items.length === 0}
+              disabled={busy}
               onClick={closeRecess}
             >
               {busy ? (

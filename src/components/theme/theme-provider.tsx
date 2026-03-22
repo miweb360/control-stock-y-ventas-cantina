@@ -103,18 +103,11 @@ export function ThemeProvider({
     localStorage.setItem("theme-palette", newPalette);
   };
 
-  // Prevent flash of unstyled content
-  if (!mounted) {
-    return (
-      <div style={{ visibility: "hidden" }}>
-        {children}
-      </div>
-    );
-  }
-
   return (
     <ThemeContext.Provider value={{ mode, palette, setMode, setPalette, resolvedMode }}>
-      {children}
+      <div style={!mounted ? { visibility: "hidden" } : undefined}>
+        {children}
+      </div>
     </ThemeContext.Provider>
   );
 }
