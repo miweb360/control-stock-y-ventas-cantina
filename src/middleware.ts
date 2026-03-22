@@ -13,6 +13,8 @@ function isRoot(pathname: string): boolean {
   return pathname === "/";
 }
 const ADMIN_PREFIX = "/admin";
+/** Impresión de reportes: OPERADOR puede abrirla desde Punto de Venta tras cerrar recreo. */
+const ADMIN_REPORTS_PRINT_PREFIX = "/admin/reports/print";
 const SALE_PREFIX = "/sale";
 
 function isPublicPath(pathname: string): boolean {
@@ -69,6 +71,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith(ADMIN_PREFIX) && payload.role !== "ADMIN") {
+    if (
+      pathname.startsWith(ADMIN_REPORTS_PRINT_PREFIX) &&
+      payload.role === "OPERADOR"
+    ) {
+      return NextResponse.next();
+    }
     return NextResponse.redirect(new URL("/sale", request.url));
   }
 
