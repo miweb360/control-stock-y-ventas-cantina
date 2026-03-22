@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ShoppingCart,
   Barcode,
   Plus,
   Minus,
-  Trash2,
   CreditCard,
   Banknote,
   QrCode,
@@ -16,6 +15,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Printer,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Header } from "@/components/layout/header";
@@ -78,12 +80,22 @@ type ClosedSessionDetail = {
   items: SessionItem[];
 };
 
+const QUICK_MODAL_PAGE_SIZE = 8;
+/** A–Z + Ñ (español) */
+const ALPHABET_LETTERS = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+
+function normalizeForSearch(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase();
+}
+
 export default function SalePage() {
   const [session, setSession] = useState<OpenSession | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [barcode, setBarcode] = useState("");
   const [qty, setQty] = useState(1);
-  const [selectedProductId, setSelectedProductId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
@@ -93,6 +105,10 @@ export default function SalePage() {
   const [paymentTotal, setPaymentTotal] = useState("");
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const [closedSessionDetail, setClosedSessionDetail] = useState<ClosedSessionDetail | null>(null);
+  const [quickModalOpen, setQuickModalOpen] = useState(false);
+  const [quickLetter, setQuickLetter] = useState<string | null>(null);
+  const [quickSearch, setQuickSearch] = useState("");
+  const [quickPage, setQuickPage] = useState(0);
 
   const loadCurrent = useCallback(async () => {
     const res = await fetch("/api/v1/recess-sessions?current=1");
@@ -106,11 +122,6 @@ export default function SalePage() {
     if (!res.ok) throw new Error(await res.text());
     const data = (await res.json()) as { items: Product[] };
     setProducts(data.items);
-    setSelectedProductId((prev) => {
-      if (prev && data.items.some((p) => p.id === prev)) return prev;
-      const firstNoBarcode = data.items.find((p) => !p.barcode);
-      return firstNoBarcode?.id ?? data.items[0]?.id ?? "";
-    });
   }, []);
 
   useEffect(() => {
@@ -133,6 +144,10 @@ export default function SalePage() {
     if (session && barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) setQuickModalOpen(false);
   }, [session]);
 
   const showSuccess = (msg: string) => {
@@ -161,8 +176,10 @@ export default function SalePage() {
     }
   }
 
-  async function addItem(byBarcode: boolean) {
+  async function addItem(byBarcode: boolean, productIdForQuick?: string) {
     if (!session) return;
+    const productId = productIdForQuick ?? "";
+    if (!byBarcode && !productId) return;
     if (addInFlightRef.current) return;
     addInFlightRef.current = true;
     setBusy(true);
@@ -174,7 +191,7 @@ export default function SalePage() {
     try {
       const body = byBarcode
         ? { barcode: barcode.trim(), qty, idempotencyKey }
-        : { productId: selectedProductId, qty, idempotencyKey };
+        : { productId, qty, idempotencyKey };
       const res = await fetch(`/api/v1/recess-sessions/${session.id}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -246,6 +263,42 @@ export default function SalePage() {
 
   const subtotal = session?.items.reduce((s, i) => s + i.lineTotal, 0) ?? 0;
   const noBarcodeProducts = products.filter((p) => !p.barcode);
+
+  const filteredQuickProducts = useMemo(() => {
+    return noBarcodeProducts
+      .filter((p) => {
+        const n = normalizeForSearch(p.name);
+        if (quickLetter) {
+          const L = normalizeForSearch(quickLetter);
+          if (!n.startsWith(L)) return false;
+        }
+        const q = quickSearch.trim();
+        if (q) {
+          if (!n.includes(normalizeForSearch(q))) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
+  }, [noBarcodeProducts, quickLetter, quickSearch]);
+
+  useEffect(() => {
+    setQuickPage(0);
+  }, [quickLetter, quickSearch]);
+
+  useEffect(() => {
+    const pc = Math.max(1, Math.ceil(filteredQuickProducts.length / QUICK_MODAL_PAGE_SIZE));
+    setQuickPage((p) => Math.min(p, pc - 1));
+  }, [filteredQuickProducts.length]);
+
+  const quickPageCount = Math.max(
+    1,
+    Math.ceil(filteredQuickProducts.length / QUICK_MODAL_PAGE_SIZE)
+  );
+  const quickPageSafe = Math.min(quickPage, quickPageCount - 1);
+  const quickPageItems = filteredQuickProducts.slice(
+    quickPageSafe * QUICK_MODAL_PAGE_SIZE,
+    quickPageSafe * QUICK_MODAL_PAGE_SIZE + QUICK_MODAL_PAGE_SIZE
+  );
 
   const paymentMethods = [
     { value: "EFECTIVO", label: "Efectivo", icon: Banknote },
@@ -392,29 +445,27 @@ export default function SalePage() {
                 No hay productos sin codigo de barras.
               </p>
             ) : (
-              <>
-                <select
-                  className="flex h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                >
-                  {noBarcodeProducts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} - ${p.priceRef.toFixed(2)}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  className="h-11 w-full"
-                  variant="secondary"
-                  disabled={busy || !selectedProductId}
-                  onClick={() => addItem(false)}
-                >
-                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                  Agregar Producto
-                </Button>
-              </>
+              <p className="text-xs text-muted-foreground">
+                Cantidad del panel (arriba) se usa al tocar un producto en la grilla.
+              </p>
             )}
+            {noBarcodeProducts.length > 0 ? (
+              <Button
+                type="button"
+                className="h-11 w-full"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => {
+                  setQuickLetter(null);
+                  setQuickSearch("");
+                  setQuickPage(0);
+                  setQuickModalOpen(true);
+                }}
+              >
+                <Package className="mr-2 h-4 w-4" />
+                Elegir producto
+              </Button>
+            ) : null}
           </div>
 
           {/* Payment Section */}
@@ -530,6 +581,142 @@ export default function SalePage() {
       </div>
         </>
       )}
+
+      <Dialog
+        open={quickModalOpen}
+        onOpenChange={(open) => {
+          setQuickModalOpen(open);
+          if (open) {
+            setQuickLetter(null);
+            setQuickSearch("");
+            setQuickPage(0);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] max-w-[calc(100%-2rem)] gap-0 overflow-hidden p-0 sm:max-w-3xl" showCloseButton>
+          <div className="border-b border-border p-4 pb-3">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                Productos rapidos
+              </DialogTitle>
+              <DialogDescription>
+                Letra: nombre que <strong>empieza</strong> por · Buscar: <strong>contiene</strong> el texto. Toca una
+                tarjeta para agregar la cantidad indicada arriba (escaner).
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="max-h-[min(65dvh,520px)] space-y-3 overflow-y-auto p-4">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Inicial del nombre</Label>
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={quickLetter === null ? "default" : "outline"}
+                  className="h-8 min-w-10 px-2 text-xs"
+                  onClick={() => setQuickLetter(null)}
+                >
+                  Todas
+                </Button>
+                {ALPHABET_LETTERS.map((L) => (
+                  <Button
+                    key={L}
+                    type="button"
+                    size="sm"
+                    variant={quickLetter === L ? "default" : "outline"}
+                    className="h-8 min-w-8 px-0 text-xs"
+                    onClick={() => setQuickLetter(L)}
+                  >
+                    {L}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="quick-search" className="text-xs text-muted-foreground">
+                Buscar en el nombre (contiene)
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="quick-search"
+                  className="h-10 pl-9"
+                  placeholder="Ej. choco"
+                  value={quickSearch}
+                  onChange={(e) => setQuickSearch(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            {quickPageItems.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Ningun producto coincide con el filtro.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {quickPageItems.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void addItem(false, p.id)}
+                    className={cn(
+                      "flex flex-col items-stretch rounded-xl border border-border bg-card p-3 text-left transition-colors",
+                      "hover:border-primary/50 hover:bg-accent/30 active:scale-[0.98]",
+                      "disabled:pointer-events-none disabled:opacity-50"
+                    )}
+                  >
+                    <span className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-tight">{p.name}</span>
+                    <span className="mt-2 font-mono text-base font-semibold text-primary">
+                      ${p.priceRef.toFixed(2)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-3">
+            <p className="text-xs text-muted-foreground">
+              {filteredQuickProducts.length === 0
+                ? "0 productos"
+                : `${quickPageSafe + 1} / ${quickPageCount} · ${filteredQuickProducts.length} producto(s)`}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={quickPageSafe <= 0}
+                onClick={() => setQuickPage((p) => Math.max(0, p - 1))}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Anterior
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={quickPageSafe >= quickPageCount - 1}
+                onClick={() => {
+                  const pc = Math.max(
+                    1,
+                    Math.ceil(filteredQuickProducts.length / QUICK_MODAL_PAGE_SIZE)
+                  );
+                  setQuickPage((p) => Math.min(pc - 1, p + 1));
+                }}
+              >
+                Siguiente
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={closedSessionDetail !== null} onOpenChange={(open) => !open && setClosedSessionDetail(null)}>
         <DialogContent className="max-w-2xl sm:max-w-2xl" showCloseButton>
